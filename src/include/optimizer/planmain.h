@@ -24,6 +24,10 @@ extern PGDLLIMPORT double cursor_tuple_fraction;
 /* query_planner callback to compute query_pathkeys */
 typedef void (*query_pathkeys_callback) (PlannerInfo *root, void *extra);
 
+/* callback for optimizer plugins before make_one_rel is called, but after root is initialized */
+typedef void (*prepare_make_one_rel_callback_type) (PlannerInfo *root, List *joinlist);
+extern PGDLLIMPORT prepare_make_one_rel_callback_type prepare_make_one_rel_callback;
+
 /*
  * prototypes for plan/planmain.c
  */
