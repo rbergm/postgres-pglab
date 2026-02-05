@@ -1043,6 +1043,9 @@ typedef struct RelOptInfo
 	List	  **partexprs pg_node_attr(read_write_ignore);
 	/* Nullable partition key expressions */
 	List	  **nullable_partexprs pg_node_attr(read_write_ignore);
+
+    /* optional private data for optimizer extensions, added by pg_lab */
+    void       *pglab_private pg_node_attr(read_write_ignore);
 } RelOptInfo;
 
 /*
@@ -1666,6 +1669,9 @@ typedef struct Path
 
 	/* sort ordering of path's output; a List of PathKey nodes; see above */
 	List	   *pathkeys;
+
+    /* optional private data for optimizer extensions, added by pg_lab */
+    void       *pglab_private pg_node_attr(read_write_ignore);
 } Path;
 
 /* Macro for extracting a path's parameterization relids; beware double eval */
