@@ -53,6 +53,13 @@ typedef RelOptInfo *(*make_join_rel_hook_type) (PlannerInfo *root,
                                                 RelOptInfo *rel2);
 extern PGDLLIMPORT make_join_rel_hook_type make_join_rel_hook;
 
+/* pg_lab addition: hook to compute own number of parallel workers */
+typedef int (*compute_parallel_worker_hook_type) (RelOptInfo *rel,
+                                                  double heap_pages,
+                                                  double index_pages,
+                                                  int max_workers);
+extern PGDLLIMPORT compute_parallel_worker_hook_type compute_parallel_worker_hook;
+
 extern RelOptInfo *make_one_rel(PlannerInfo *root, List *joinlist);
 extern RelOptInfo *standard_join_search(PlannerInfo *root, int levels_needed,
 										List *initial_rels);
@@ -63,6 +70,9 @@ extern void generate_useful_gather_paths(PlannerInfo *root, RelOptInfo *rel,
 										 bool override_rows);
 extern int	compute_parallel_worker(RelOptInfo *rel, double heap_pages,
 									double index_pages, int max_workers);
+extern int standard_compute_parallel_worker(RelOptInfo *rel,
+                                            double heap_pages, double index_pages,
+                                            int max_workers);
 extern void create_partial_bitmap_paths(PlannerInfo *root, RelOptInfo *rel,
 										Path *bitmapqual);
 extern void generate_partitionwise_join_paths(PlannerInfo *root,
