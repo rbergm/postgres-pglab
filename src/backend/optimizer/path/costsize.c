@@ -154,6 +154,12 @@ bool		enable_partition_pruning = true;
 bool		enable_presorted_aggregate = true;
 bool		enable_async_append = true;
 
+/* pg_lab additions */
+
+set_baserel_size_estimates_hook_type    set_baserel_size_estimates_hook = NULL;
+set_joinrel_size_estimates_hook_type    set_joinrel_size_estimates_hook = NULL;
+
+
 typedef struct
 {
 	PlannerInfo *root;
@@ -5015,6 +5021,33 @@ set_baserel_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 {
 	double		nrows;
 
+	if (set_baserel_size_estimates_hook)
+	{
+		nrows = (*set_baserel_size_estimates_hook) (root, rel);
+	}
+	else
+	{
+		nrows = standard_set_baserel_size_estimates(root, rel);
+	}
+
+	rel->rows = clamp_row_est(nrows);
+
+	cost_qual_eval(&rel->baserestrictcost, rel->baserestrictinfo, root);
+
+	set_rel_width(root, rel);
+}
+
+/*
+ * standard_set_baserel_size_estimates
+ * 			Compute the number of rows in a base relation.
+ *
+ * See set_baserel_size_estimates for a description of the parameters.
+ */
+double
+standard_set_baserel_size_estimates(PlannerInfo *root, RelOptInfo *rel)
+{
+	double		nrows;
+
 	/* Should only be applied to base relations */
 	Assert(rel->relid > 0);
 
@@ -5025,11 +5058,7 @@ set_baserel_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 							   JOIN_INNER,
 							   NULL);
 
-	rel->rows = clamp_row_est(nrows);
-
-	cost_qual_eval(&rel->baserestrictcost, rel->baserestrictinfo, root);
-
-	set_rel_width(root, rel);
+	return nrows;
 }
 
 /*
@@ -5096,7 +5125,37 @@ set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,
 						   SpecialJoinInfo *sjinfo,
 						   List *restrictlist)
 {
-	rel->rows = calc_joinrel_size_estimate(root,
+	double		nrows;
+
+	if (set_joinrel_size_estimates_hook)
+	{
+		nrows = (*set_joinrel_size_estimates_hook) (root, rel, outer_rel, inner_rel,
+													sjinfo, restrictlist);
+	}
+	else
+	{
+		nrows = standard_set_joinrel_size_estimates(root, rel, outer_rel, inner_rel,
+													sjinfo, restrictlist);
+	}
+	rel->rows = nrows;
+}
+
+/*
+ * standard_set_joinrel_size_estimates
+ * 		Compute the number of rows in a join relation.
+ *
+ * See set_joinrel_size_estimates for a description of the parameters.
+ */
+double
+standard_set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,
+									RelOptInfo *outer_rel,
+									RelOptInfo *inner_rel,
+									SpecialJoinInfo *sjinfo,
+									List *restrictlist)
+{
+	double		nrows;
+
+	nrows = calc_joinrel_size_estimate(root,
 										   rel,
 										   outer_rel,
 										   inner_rel,
@@ -5104,6 +5163,7 @@ set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,
 										   inner_rel->rows,
 										   sjinfo,
 										   restrictlist);
+	return nrows;
 }
 
 /*
