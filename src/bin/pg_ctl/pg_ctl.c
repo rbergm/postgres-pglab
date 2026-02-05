@@ -2250,21 +2250,6 @@ main(int argc, char **argv)
 		}
 	}
 
-	/*
-	 * Disallow running as root, to forestall any possible security holes.
-	 */
-#ifndef WIN32
-	if (geteuid() == 0)
-	{
-		write_stderr(_("%s: cannot be run as root\n"
-					   "Please log in (using, e.g., \"su\") as the "
-					   "(unprivileged) user that will\n"
-					   "own the server process.\n"),
-					 progname);
-		exit(1);
-	}
-#endif
-
 	env_wait = getenv("PGCTLTIMEOUT");
 	if (env_wait != NULL)
 		wait_seconds = atoi(env_wait);
