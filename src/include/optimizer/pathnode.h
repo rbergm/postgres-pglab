@@ -18,6 +18,22 @@
 #include "nodes/pathnodes.h"
 
 
+/* pg_lab addition: allow plugins to control the path storage (acceptance and pruning) logic */
+typedef void (*add_path_hook_type) (RelOptInfo *parent_rel, Path *new_path);
+extern add_path_hook_type add_path_hook;
+
+/* pg_lab addition: allow plugins to control the storage (acceptance and pruning) logic for parallel paths */
+typedef void (*add_partial_path_hook_type) (RelOptInfo *parent_rel, Path *new_path);
+extern add_partial_path_hook_type add_partial_path_hook;
+
+typedef bool (*add_path_precheck_hook_type) (RelOptInfo *parent_rel, int disabled_nodes,
+                                             Cost startup_cost, Cost total_cost,
+                                             List *pathkeys, Relids required_outer);
+extern add_path_precheck_hook_type add_path_precheck_hook;
+typedef bool (*add_partial_path_precheck_hook_type) (RelOptInfo *parent_rel, int disabled_nodes,
+                                                    Cost total_cost, List *pathkeys);
+extern add_partial_path_precheck_hook_type add_partial_path_precheck_hook;
+
 /*
  * prototypes for pathnode.c
  */
@@ -26,14 +42,23 @@ extern int	compare_path_costs(Path *path1, Path *path2,
 extern int	compare_fractional_path_costs(Path *path1, Path *path2,
 										  double fraction);
 extern void set_cheapest(RelOptInfo *parent_rel);
+
 extern void add_path(RelOptInfo *parent_rel, Path *new_path);
+extern void standard_add_path(RelOptInfo *parent_rel, Path *new_path);
 extern bool add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
 							  Cost startup_cost, Cost total_cost,
 							  List *pathkeys, Relids required_outer);
+extern bool standard_add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
+                                       Cost startup_cost, Cost total_cost,
+                                       List *pathkeys, Relids required_outer);
 extern void add_partial_path(RelOptInfo *parent_rel, Path *new_path);
+extern void standard_add_partial_path(RelOptInfo *parent_rel, Path *new_path);
 extern bool add_partial_path_precheck(RelOptInfo *parent_rel,
 									  int disabled_nodes,
 									  Cost total_cost, List *pathkeys);
+extern bool standard_add_partial_path_precheck(RelOptInfo *parent_rel,
+											   int disabled_nodes,
+                                               Cost total_cost, List *pathkeys);
 
 extern Path *create_seqscan_path(PlannerInfo *root, RelOptInfo *rel,
 								 Relids required_outer, int parallel_workers);

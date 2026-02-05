@@ -29,6 +29,9 @@
 #include "nodes/extensible.h"
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
+#include "optimizer/geqo.h"
+#include "optimizer/paths.h"
+#include "optimizer/planner.h"
 #include "parser/analyze.h"
 #include "parser/parsetree.h"
 #include "rewrite/rewriteHandler.h"
@@ -61,6 +64,17 @@ explain_per_node_hook_type explain_per_node_hook = NULL;
  * to the next whole kilobyte.
  */
 #define BYTES_TO_KILOBYTES(b) (((b) + 1023) / 1024)
+
+char	  **current_planner_type = &PLANNER_TYPE_UNSET;
+extern PGDLLIMPORT planner_hook_type planner_hook;
+static planner_hook_type prev_planner_hook;
+static PlannedStmt *planner_explain_interceptor(Query *parse, const char *query_string,
+												int cursorOptions, ParamListInfo boundParams);
+
+char	  **current_join_ordering_type = &PLANNER_TYPE_UNSET;
+extern PGDLLIMPORT join_search_hook_type join_search_hook;
+static join_search_hook_type prev_join_search_hook;
+static RelOptInfo *join_search_explain_interceptor(PlannerInfo *root, int levels_needed, List *initial_rels);
 
 static void ExplainOneQuery(Query *query, int cursorOptions,
 							IntoClause *into, ExplainState *es,
@@ -166,6 +180,57 @@ static void ExplainOpenWorker(int n, ExplainState *es);
 static void ExplainCloseWorker(int n, ExplainState *es);
 static void ExplainFlushWorkersState(ExplainState *es);
 
+
+char	   *PLANNER_TYPE_UNSET = "<unset>";
+char	   *PLANNER_TYPE_CUSTOM = "Custom Hook";
+char	   *PLANNER_TYPE_DEFAULT = "Standard";
+char	   *JOIN_ORDER_TYPE_CUSTOM = "Custom Hook";
+char	   *JOIN_ORDER_TYPE_GEQO = "GeQO";
+char	   *JOIN_ORDER_TYPE_STANDARD = "Dynamic Programming";
+
+PlannedStmt *
+planner_explain_interceptor(Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams)
+{
+	PlannedStmt *result;
+
+	if (prev_planner_hook)
+	{
+		current_planner_type = &PLANNER_TYPE_CUSTOM;
+		result = (*prev_planner_hook) (parse, query_string, cursorOptions, boundParams);
+	}
+	else
+	{
+		current_planner_type = &PLANNER_TYPE_DEFAULT;
+		result = standard_planner(parse, query_string, cursorOptions, boundParams);
+	}
+
+	return result;
+}
+
+
+RelOptInfo *
+join_search_explain_interceptor(PlannerInfo *root, int levels_needed, List *initial_rels)
+{
+	RelOptInfo *result;
+
+	if (prev_join_search_hook)
+	{
+		current_join_ordering_type = &JOIN_ORDER_TYPE_CUSTOM;
+		result = (*prev_join_search_hook) (root, levels_needed, initial_rels);
+	}
+	else if (enable_geqo && levels_needed >= geqo_threshold)
+	{
+		current_join_ordering_type = &JOIN_ORDER_TYPE_GEQO;
+		result = geqo(root, levels_needed, initial_rels);
+	}
+	else
+	{
+		current_join_ordering_type = &JOIN_ORDER_TYPE_STANDARD;
+		result = standard_join_search(root, levels_needed, initial_rels);
+	}
+
+	return result;
+}
 
 
 /*
@@ -350,7 +415,23 @@ standard_ExplainOneQuery(Query *query, int cursorOptions,
 	INSTR_TIME_SET_CURRENT(planstart);
 
 	/* plan the query */
-	plan = pg_plan_query(query, queryString, cursorOptions, params);
+	prev_planner_hook = planner_hook;
+	planner_hook = planner_explain_interceptor;
+	prev_join_search_hook = join_search_hook;
+	join_search_hook = join_search_explain_interceptor;
+
+	PG_TRY();
+	{
+		plan = pg_plan_query(query, queryString, cursorOptions, params);
+	}
+	PG_FINALLY();
+	{
+		planner_hook = prev_planner_hook;
+		prev_planner_hook = NULL;
+		join_search_hook = prev_join_search_hook;
+		prev_join_search_hook = NULL;
+	}
+	PG_END_TRY();
 
 	INSTR_TIME_SET_CURRENT(planduration);
 	INSTR_TIME_SUBTRACT(planduration, planstart);
@@ -372,6 +453,25 @@ standard_ExplainOneQuery(Query *query, int cursorOptions,
 	ExplainOnePlan(plan, into, es, queryString, params, queryEnv,
 				   &planduration, (es->buffers ? &bufusage : NULL),
 				   es->memory ? &mem_counters : NULL);
+
+	if (es->format == EXPLAIN_FORMAT_TEXT)
+	{
+		ExplainOpenGroup("Optimizer", "Optimizer", true, es);
+		ExplainIndentText(es);
+		appendStringInfo(es->str, "Optimizer: planner=%s", *current_planner_type);
+		appendStringInfo(es->str, " joinorder=%s", *current_join_ordering_type);
+		ExplainCloseGroup("Optimizer", "Optimizer", true, es);
+	}
+	else
+	{
+		ExplainOpenGroup("OptimizerInfo", NULL, true, es);
+		ExplainOpenGroup("Optimizer", "Optimizer", true, es);
+		ExplainPropertyText("Planner", *current_planner_type, es);
+		ExplainPropertyText("Join Ordering", *current_join_ordering_type, es);
+		ExplainCloseGroup("Optimizer", "Optimizer", true, es);
+		ExplainCloseGroup("OptimizerInfo", NULL, true, es);
+	}
+
 }
 
 /*

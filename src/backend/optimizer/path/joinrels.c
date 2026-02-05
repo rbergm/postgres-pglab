@@ -22,6 +22,8 @@
 #include "partitioning/partbounds.h"
 #include "utils/memutils.h"
 
+/* pg_lab addition: hook for plugins to control the creation of RelOptInfos for joins */
+make_join_rel_hook_type make_join_rel_hook = NULL;
 
 static void make_rels_by_clause_joins(PlannerInfo *root,
 									  RelOptInfo *old_rel,
@@ -694,6 +696,23 @@ init_dummy_sjinfo(SpecialJoinInfo *sjinfo, Relids left_relids,
  */
 RelOptInfo *
 make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
+{
+	RelOptInfo *result;
+
+	if (make_join_rel_hook)
+	{
+		result = (*make_join_rel_hook) (root, rel1, rel2);
+	}
+	else
+	{
+		result = standard_make_join_rel(root, rel1, rel2);
+	}
+	return result;
+}
+
+
+RelOptInfo *
+standard_make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
 {
 	Relids		joinrelids;
 	SpecialJoinInfo *sjinfo;

@@ -76,6 +76,8 @@ planner_hook_type planner_hook = NULL;
 /* Hook for plugins to get control when grouping_planner() plans upper rels */
 create_upper_paths_hook_type create_upper_paths_hook = NULL;
 
+/* pg_lab hook for plugins to do stuff with the final path before it is turned into a plan */
+final_path_callback_type final_path_callback = NULL;
 
 /* Expression kind codes for preprocess_expression */
 #define EXPRKIND_QUAL				0
@@ -437,6 +439,10 @@ standard_planner(Query *parse, const char *query_string, int cursorOptions,
 	/* Select best Path and turn it into a Plan */
 	final_rel = fetch_upper_rel(root, UPPERREL_FINAL, NULL);
 	best_path = get_cheapest_fractional_path(final_rel, tuple_fraction);
+
+	/* pg_lab addition: give extensions the chance to do stuff with the best path */
+	if (final_path_callback)
+		best_path = (*final_path_callback) (root, final_rel, best_path);
 
 	top_plan = create_plan(root, best_path);
 

@@ -81,4 +81,14 @@ extern void ExplainQueryText(struct ExplainState *es, QueryDesc *queryDesc);
 extern void ExplainQueryParameters(struct ExplainState *es,
 								   ParamListInfo params, int maxlen);
 
+extern PGDLLIMPORT char *PLANNER_TYPE_UNSET;
+extern PGDLLIMPORT char *PLANNER_TYPE_CUSTOM;
+extern PGDLLIMPORT char *PLANNER_TYPE_DEFAULT;
+extern PGDLLIMPORT char *JOIN_ORDER_TYPE_CUSTOM;
+extern PGDLLIMPORT char *JOIN_ORDER_TYPE_GEQO;
+extern PGDLLIMPORT char *JOIN_ORDER_TYPE_STANDARD;
+
+extern PGDLLIMPORT char **current_planner_type;
+extern PGDLLIMPORT char **current_join_ordering_type;
+
 #endif							/* EXPLAIN_H */

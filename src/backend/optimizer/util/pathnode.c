@@ -42,6 +42,12 @@ typedef enum
 	COSTS_DIFFERENT,			/* neither path dominates the other on cost */
 } PathCostComparison;
 
+/* pg_lab additions */
+add_path_hook_type add_path_hook = NULL;
+add_partial_path_hook_type add_partial_path_hook = NULL;
+add_path_precheck_hook_type add_path_precheck_hook = NULL;
+add_partial_path_precheck_hook_type add_partial_path_precheck_hook = NULL;
+
 /*
  * STD_FUZZ_FACTOR is the normal fuzz factor for compare_path_costs_fuzzily.
  * XXX is it worth making this user-controllable?  It provides a tradeoff
@@ -388,8 +394,26 @@ set_cheapest(RelOptInfo *parent_rel)
 	parent_rel->cheapest_parameterized_paths = parameterized_paths;
 }
 
+
 /*
  * add_path
+ * 	  Consider a potential implementation path for the specified parent rel,
+ * 	  and add it to the rel's pathlist if it is worthy of consideration.
+ *
+ * 	  The precise policy followed by add_path is determined by the add_path_hook.
+ * 	  The default policy is specified by standard_add_path.
+ */
+void
+add_path(RelOptInfo *parent_rel, Path *new_path)
+{
+	if (add_path_hook)
+		(*add_path_hook) (parent_rel, new_path);
+	else
+		standard_add_path(parent_rel, new_path);
+}
+
+/*
+ * standard_add_path
  *	  Consider a potential implementation path for the specified parent rel,
  *	  and add it to the rel's pathlist if it is worthy of consideration.
  *
@@ -461,7 +485,7 @@ set_cheapest(RelOptInfo *parent_rel)
  * Returns nothing, but modifies parent_rel->pathlist.
  */
 void
-add_path(RelOptInfo *parent_rel, Path *new_path)
+standard_add_path(RelOptInfo *parent_rel, Path *new_path)
 {
 	bool		accept_new = true;	/* unless we find a superior old path */
 	int			insert_at = 0;	/* where to insert new item */
@@ -676,6 +700,30 @@ add_path(RelOptInfo *parent_rel, Path *new_path)
  *	  We assume we know the path's pathkeys and parameterization accurately,
  *	  and have lower bounds for its costs.
  *
+ * 	  The precise policy followed by add_path_precheck is determined by the
+ *    add_path_precheck_hook. The default policy is specified by
+ *    standard_add_path_precheck.
+ *
+ */
+bool
+add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
+				  Cost startup_cost, Cost total_cost,
+                  List *pathkeys, Relids required_outer)
+{
+    if (add_path_precheck_hook)
+        return (*add_path_precheck_hook) (parent_rel, disabled_nodes, startup_cost,
+                                          total_cost, pathkeys, required_outer);
+    else
+        return standard_add_path_precheck(parent_rel, disabled_nodes, startup_cost,
+                                           total_cost, pathkeys, required_outer);
+}
+
+/*
+ * standard_add_path_precheck
+ *	  Check whether a proposed new path could possibly get accepted.
+ *	  We assume we know the path's pathkeys and parameterization accurately,
+ *	  and have lower bounds for its costs.
+ *
  * Note that we do not know the path's rowcount, since getting an estimate for
  * that is too expensive to do before prechecking.  We assume here that paths
  * of a superset parameterization will generate fewer rows; if that holds,
@@ -688,9 +736,9 @@ add_path(RelOptInfo *parent_rel, Path *new_path)
  * so the required information has to be passed piecemeal.
  */
 bool
-add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
-				  Cost startup_cost, Cost total_cost,
-				  List *pathkeys, Relids required_outer)
+standard_add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
+				  		   Cost startup_cost, Cost total_cost,
+				  		   List *pathkeys, Relids required_outer)
 {
 	List	   *new_path_pathkeys;
 	bool		consider_startup;
@@ -757,6 +805,25 @@ add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
 
 /*
  * add_partial_path
+ *    Similar to add_path, but for partial paths.
+ * 	  Consider a potential implementation path for the specified parent rel,
+ * 	  and add it to the rel's partial_pathlist if it is worthy of consideration.
+ *
+ * 	  The precise policy followed by add_partial_path is determined by the
+ *    add_partial_path_hook. The default policy is specified by
+ *    standard_add_partial_path.
+ */
+void
+add_partial_path(RelOptInfo *parent_rel, Path *new_path)
+{
+	if (add_partial_path_hook)
+		(*add_partial_path_hook) (parent_rel, new_path);
+	else
+		standard_add_partial_path(parent_rel, new_path);
+}
+
+/*
+ * add_partial_path
  *	  Like add_path, our goal here is to consider whether a path is worthy
  *	  of being kept around, but the considerations here are a bit different.
  *	  A partial path is one which can be executed in any number of workers in
@@ -795,7 +862,7 @@ add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
  *	  referenced by partial BitmapHeapPaths.
  */
 void
-add_partial_path(RelOptInfo *parent_rel, Path *new_path)
+standard_add_partial_path(RelOptInfo *parent_rel, Path *new_path)
 {
 	bool		accept_new = true;	/* unless we find a superior old path */
 	int			insert_at = 0;	/* where to insert new item */
@@ -914,6 +981,26 @@ add_partial_path(RelOptInfo *parent_rel, Path *new_path)
  * add_partial_path_precheck
  *	  Check whether a proposed new partial path could possibly get accepted.
  *
+ * 	  The precise policy followed by add_partial_path_precheck is determined by the
+ *    add_partial_path_precheck_hook. The default policy is specified by
+ *    standard_add_partial_path_precheck.
+ */
+bool
+add_partial_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
+						  Cost total_cost, List *pathkeys)
+{
+    if (add_partial_path_precheck_hook)
+        return (*add_partial_path_precheck_hook) (parent_rel, disabled_nodes,
+												  total_cost, pathkeys);
+    else
+        return standard_add_partial_path_precheck(parent_rel, disabled_nodes,
+												  total_cost, pathkeys);
+}
+
+/*
+ * standard_add_partial_path_precheck
+ *	  Check whether a proposed new partial path could possibly get accepted.
+ *
  * Unlike add_path_precheck, we can ignore startup cost and parameterization,
  * since they don't matter for partial paths (see add_partial_path).  But
  * we do want to make sure we don't add a partial path if there's already
@@ -921,8 +1008,8 @@ add_partial_path(RelOptInfo *parent_rel, Path *new_path)
  * is surely a loser.
  */
 bool
-add_partial_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
-						  Cost total_cost, List *pathkeys)
+standard_add_partial_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
+								   Cost total_cost, List *pathkeys)
 {
 	ListCell   *p1;
 
