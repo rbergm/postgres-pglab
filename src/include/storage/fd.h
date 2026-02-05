@@ -43,6 +43,8 @@
 #ifndef FD_H
 #define FD_H
 
+#include "utils/resowner.h"
+
 #include <dirent.h>
 #include <fcntl.h>
 
