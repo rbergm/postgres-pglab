@@ -155,6 +155,34 @@ bool		enable_async_append = true;
 
 /* pg_lab additions */
 
+cost_seqscan_hook_type  cost_seqscan_hook = NULL;
+cost_index_hook_type    cost_index_hook = NULL;
+
+cost_bitmap_heap_scan_hook_type     cost_bitmap_heap_scan_hook = NULL;
+cost_bitmap_and_node_hook_type      cost_bitmap_and_node_hook = NULL;
+cost_bitmap_or_node_hook_type       cost_bitmap_or_node_hook = NULL;
+
+cost_sort_hook_type                 cost_sort_hook = NULL;
+cost_incremental_sort_hook_type     cost_incremental_sort_hook = NULL;
+
+cost_material_hook_type         cost_material_hook = NULL;
+cost_rescan_hook_type           cost_rescan_hook = NULL;
+cost_memoize_rescan_hook_type   cost_memoize_rescan_hook = NULL;
+
+cost_agg_hook_type          cost_agg_hook = NULL;
+cost_windowagg_hook_type    cost_windowagg_hook = NULL;
+cost_group_hook_type        cost_group_hook = NULL;
+
+initial_cost_nestloop_hook_type     initial_cost_nestloop_hook = NULL;
+final_cost_nestloop_hook_type       final_cost_nestloop_hook = NULL;
+initial_cost_mergejoin_hook_type    initial_cost_mergejoin_hook = NULL;
+final_cost_mergejoin_hook_type      final_cost_mergejoin_hook = NULL;
+initial_cost_hashjoin_hook_type     initial_cost_hashjoin_hook = NULL;
+final_cost_hashjoin_hook_type       final_cost_hashjoin_hook = NULL;
+
+cost_gather_hook_type           cost_gather_hook = NULL;
+cost_gather_merge_hook_type     cost_gather_merge_hook = NULL;
+
 set_baserel_size_estimates_hook_type    set_baserel_size_estimates_hook = NULL;
 set_joinrel_size_estimates_hook_type    set_joinrel_size_estimates_hook = NULL;
 
@@ -169,8 +197,6 @@ static List *extract_nonindex_conditions(List *qual_clauses, List *indexclauses)
 static MergeScanSelCache *cached_scansel(PlannerInfo *root,
 										 RestrictInfo *rinfo,
 										 PathKey *pathkey);
-static void cost_rescan(PlannerInfo *root, Path *path,
-						Cost *rescan_startup_cost, Cost *rescan_total_cost);
 static bool cost_qual_eval_walker(Node *node, cost_qual_eval_context *context);
 static void get_restriction_qual_cost(PlannerInfo *root, RelOptInfo *baserel,
 									  ParamPathInfo *param_info,
@@ -289,6 +315,26 @@ clamp_cardinality_to_long(Cardinality x)
 void
 cost_seqscan(Path *path, PlannerInfo *root,
 			 RelOptInfo *baserel, ParamPathInfo *param_info)
+{
+	if (cost_seqscan_hook)
+	{
+		(*cost_seqscan_hook) (path, root, baserel, param_info);
+	}
+	else
+	{
+		standard_cost_seqscan(path, root, baserel, param_info);
+	}
+}
+
+/*
+ * standard_cost_seqscan
+ * 	  Default cost estimation for sequential scans.
+ *
+ * See cost_seqscan for the meaning of the parameters.
+ */
+void
+standard_cost_seqscan(Path *path, PlannerInfo *root,
+					  RelOptInfo *baserel, ParamPathInfo *param_info)
 {
 	Cost		startup_cost = 0;
 	Cost		cpu_run_cost;
@@ -443,6 +489,27 @@ cost_gather(GatherPath *path, PlannerInfo *root,
 			RelOptInfo *rel, ParamPathInfo *param_info,
 			double *rows)
 {
+	if (cost_gather_hook)
+	{
+		(*cost_gather_hook) (path, root, rel, param_info, rows);
+	}
+	else
+	{
+		standard_cost_gather(path, root, rel, param_info, rows);
+	}
+}
+
+/*
+ * standard_cost_gather
+ *	  Default cost estimation for Gather nodes.
+ *
+ * See cost_gather for the meaning of the parameters.
+ */
+void
+standard_cost_gather(GatherPath *path, PlannerInfo *root,
+					 RelOptInfo *rel, ParamPathInfo *param_info,
+					 double *rows)
+{
 	Cost		startup_cost = 0;
 	Cost		run_cost = 0;
 
@@ -481,6 +548,30 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 				  RelOptInfo *rel, ParamPathInfo *param_info,
 				  Cost input_startup_cost, Cost input_total_cost,
 				  double *rows)
+{
+	if (cost_gather_merge_hook)
+	{
+		(*cost_gather_merge_hook) (path, root, rel, param_info,
+								   input_startup_cost, input_total_cost, rows);
+	}
+	else
+	{
+		standard_cost_gather_merge(path, root, rel, param_info,
+								   input_startup_cost, input_total_cost, rows);
+	}
+}
+
+/*
+ * standard_cost_gather_merge
+ *	  Default cost estimation for Gather Merge nodes.
+ *
+ * See cost_gather_merge for the meaning of the parameters.
+ */
+void
+standard_cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
+						   RelOptInfo *rel, ParamPathInfo *param_info,
+						   Cost input_startup_cost, Cost input_total_cost,
+						   double *rows)
 {
 	Cost		startup_cost = 0;
 	Cost		run_cost = 0;
@@ -554,6 +645,26 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 void
 cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 		   bool partial_path)
+{
+	if (cost_index_hook)
+	{
+		(*cost_index_hook) (path, root, loop_count, partial_path);
+	}
+	else
+	{
+		standard_cost_index(path, root, loop_count, partial_path);
+	}
+}
+
+/*
+ * standard_cost_index
+ *	  Default cost estimation for index scans.
+ *
+ * See cost_index for the meaning of the parameters.
+ */
+void
+standard_cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
+					bool partial_path)
 {
 	IndexOptInfo *index = path->indexinfo;
 	RelOptInfo *baserel = index->rel;
@@ -1020,6 +1131,29 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 					  ParamPathInfo *param_info,
 					  Path *bitmapqual, double loop_count)
 {
+	if (cost_bitmap_heap_scan_hook)
+	{
+		(*cost_bitmap_heap_scan_hook) (path, root, baserel, param_info,
+									   bitmapqual, loop_count);
+	}
+	else
+	{
+		standard_cost_bitmap_heap_scan(path, root, baserel, param_info,
+									   bitmapqual, loop_count);
+	}
+}
+
+/*
+ * standard_cost_bitmap_heap_scan
+ * 		Default cost estimation for bitmap heap scans.
+ *
+ * See cost_bitmap_heap_scan for the meaning of the parameters.
+ */
+void
+standard_cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
+							   ParamPathInfo *param_info,
+							   Path *bitmapqual, double loop_count)
+{
 	Cost		startup_cost = 0;
 	Cost		run_cost = 0;
 	Cost		indexTotalCost;
@@ -1162,6 +1296,25 @@ cost_bitmap_tree_node(Path *path, Cost *cost, Selectivity *selec)
 void
 cost_bitmap_and_node(BitmapAndPath *path, PlannerInfo *root)
 {
+	if (cost_bitmap_and_node_hook)
+	{
+		(*cost_bitmap_and_node_hook) (path, root);
+	}
+	else
+	{
+		standard_cost_bitmap_and_node(path, root);
+	}
+}
+
+/*
+ * standard_cost_bitmap_and_node
+ *	  Default cost estimation for BitmapAnd nodes.
+ *
+ * See cost_bitmap_and_node for the meaning of the parameters.
+ */
+void
+standard_cost_bitmap_and_node(BitmapAndPath *path, PlannerInfo *root)
+{
 	Cost		totalCost;
 	Selectivity selec;
 	ListCell   *l;
@@ -1205,6 +1358,25 @@ cost_bitmap_and_node(BitmapAndPath *path, PlannerInfo *root)
  */
 void
 cost_bitmap_or_node(BitmapOrPath *path, PlannerInfo *root)
+{
+	if (cost_bitmap_or_node_hook)
+	{
+		(*cost_bitmap_or_node_hook) (path, root);
+	}
+	else
+	{
+		standard_cost_bitmap_or_node(path, root);
+	}
+}
+
+/*
+ * standard_cost_bitmap_or_node
+ *	  Default cost estimation for BitmapOr nodes.
+ *
+ * See cost_bitmap_or_node for the meaning of the parameters.
+ */
+void
+standard_cost_bitmap_or_node(BitmapOrPath *path, PlannerInfo *root)
 {
 	Cost		totalCost;
 	Selectivity selec;
@@ -1994,6 +2166,36 @@ cost_incremental_sort(Path *path,
 					  Cost input_startup_cost, Cost input_total_cost,
 					  double input_tuples, int width, Cost comparison_cost, int sort_mem,
 					  double limit_tuples)
+
+{
+	if (cost_incremental_sort_hook)
+	{
+		(*cost_incremental_sort_hook) (path, root, pathkeys, presorted_keys,
+									   input_startup_cost, input_total_cost,
+									   input_tuples, width, comparison_cost,
+									   sort_mem, limit_tuples);
+	}
+	else
+	{
+		standard_cost_incremental_sort(path, root, pathkeys, presorted_keys,
+									   input_startup_cost, input_total_cost,
+									   input_tuples, width, comparison_cost,
+									   sort_mem, limit_tuples);
+	}
+}
+
+/*
+ * standard_cost_incremental_sort
+ * 		Default estimation for incremental sort.
+ *
+ * See cost_incremental_sort for the meaning of the parameters.
+ */
+void
+standard_cost_incremental_sort(Path *path,
+							   PlannerInfo *root, List *pathkeys, int presorted_keys,
+							   Cost input_startup_cost, Cost input_total_cost,
+							   double input_tuples, int width, Cost comparison_cost, int sort_mem,
+							   double limit_tuples)
 {
 	Cost		startup_cost,
 				run_cost,
@@ -2131,6 +2333,30 @@ cost_sort(Path *path, PlannerInfo *root,
 		  List *pathkeys, Cost input_cost, double tuples, int width,
 		  Cost comparison_cost, int sort_mem,
 		  double limit_tuples)
+{
+	if (cost_sort_hook)
+	{
+		(*cost_sort_hook) (path, root, pathkeys, input_cost, tuples, width,
+						   comparison_cost, sort_mem, limit_tuples);
+	}
+	else
+	{
+		standard_cost_sort(path, root, pathkeys, input_cost, tuples, width,
+						   comparison_cost, sort_mem, limit_tuples);
+	}
+}
+
+/*
+ * standard_cost_sort
+ * 		Default estimation for sort.
+ *
+ * See cost_sort for the meaning of the parameters.
+ */
+void
+standard_cost_sort(Path *path, PlannerInfo *root,
+				   List *pathkeys, Cost input_cost, double tuples, int width,
+				   Cost comparison_cost, int sort_mem,
+				   double limit_tuples)
 
 {
 	Cost		startup_cost;
@@ -2460,6 +2686,28 @@ cost_material(Path *path,
 			  Cost input_startup_cost, Cost input_total_cost,
 			  double tuples, int width)
 {
+	if (cost_material_hook)
+	{
+		(*cost_material_hook) (path, input_startup_cost, input_total_cost,
+							   tuples, width);
+	}
+	else
+	{
+		standard_cost_material(path, input_startup_cost, input_total_cost,
+							   tuples, width);
+	}
+}
+
+/*
+ * standard_cost_material
+ *	  Default cost estimation for materialization.
+ * See cost_material for the meaning of the parameters.
+ */
+void
+standard_cost_material(Path *path,
+					   Cost input_startup_cost, Cost input_total_cost,
+					   double tuples, int width)
+{
 	Cost		startup_cost = input_startup_cost;
 	Cost		run_cost = input_total_cost - input_startup_cost;
 	double		nbytes = relation_byte_size(tuples, width);
@@ -2511,9 +2759,31 @@ cost_material(Path *path,
  * never see any parameter value twice, in which case we'd never get a cache
  * hit and caching would be a complete waste of effort.
  */
-static void
+void
 cost_memoize_rescan(PlannerInfo *root, MemoizePath *mpath,
 					Cost *rescan_startup_cost, Cost *rescan_total_cost)
+{
+	if (cost_memoize_rescan_hook)
+	{
+		(*cost_memoize_rescan_hook) (root, mpath,
+									 rescan_startup_cost, rescan_total_cost);
+	}
+	else
+	{
+		standard_cost_memoize_rescan(root, mpath,
+									 rescan_startup_cost, rescan_total_cost);
+	}
+}
+
+/*
+ * standard_cost_memoize_rescan
+ *	  Default cost estimation a Memoize node.
+ *
+ * See cost_memoize_rescan for the meaning of the parameters.
+ */
+void
+standard_cost_memoize_rescan(PlannerInfo *root, MemoizePath *mpath,
+							 Cost *rescan_startup_cost, Cost *rescan_total_cost)
 {
 	EstimationInfo estinfo;
 	ListCell   *lc;
@@ -2659,6 +2929,39 @@ cost_agg(Path *path, PlannerInfo *root,
 		 List *quals,
 		 Cost input_startup_cost, Cost input_total_cost,
 		 double input_tuples, double input_width)
+{
+	if (cost_agg_hook)
+	{
+		(*cost_agg_hook) (path, root,
+						  aggstrategy, aggcosts,
+						  numGroupCols, numGroups,
+						  quals,
+						  input_startup_cost, input_total_cost,
+						  input_tuples, input_width);
+	}
+	else
+	{
+		standard_cost_agg(path, root,
+						  aggstrategy, aggcosts,
+						  numGroupCols, numGroups,
+						  quals,
+						  input_startup_cost, input_total_cost,
+						  input_tuples, input_width);
+	}
+}
+
+/*
+ * standard_cost_agg
+ *		Default cost estimation for Aggregation nodes.
+ * See cost_agg for the meaning of the parameters.
+ */
+void
+standard_cost_agg(Path *path, PlannerInfo *root,
+				  AggStrategy aggstrategy, const AggClauseCosts *aggcosts,
+				  int numGroupCols, double numGroups,
+				  List *quals,
+				  Cost input_startup_cost, Cost input_total_cost,
+				  double input_tuples, double input_width)
 {
 	double		output_tuples;
 	Cost		startup_cost;
@@ -3076,6 +3379,34 @@ cost_windowagg(Path *path, PlannerInfo *root,
 			   Cost input_startup_cost, Cost input_total_cost,
 			   double input_tuples)
 {
+	if (cost_windowagg_hook)
+	{
+		(*cost_windowagg_hook) (path, root,
+								windowFuncs, numPartCols, numOrderCols,
+								input_startup_cost, input_total_cost,
+								input_tuples);
+	}
+	else
+	{
+		standard_cost_windowagg(path, root,
+								windowFuncs, numPartCols, numOrderCols,
+								input_startup_cost, input_total_cost,
+								input_tuples);
+	}
+}
+
+/*
+ * standard_cost_windowagg
+ *		Default cost estimation for WindowAgg nodes.
+ *
+ * See cost_windowagg for the meaning of the parameters.
+ */
+void
+standard_cost_windowagg(Path *path, PlannerInfo *root,
+						List *windowFuncs, int numPartCols, int numOrderCols,
+						Cost input_startup_cost, Cost input_total_cost,
+						double input_tuples)
+{
 	Cost		startup_cost;
 	Cost		total_cost;
 	double		startup_tuples;
@@ -3172,6 +3503,37 @@ cost_group(Path *path, PlannerInfo *root,
 		   Cost input_startup_cost, Cost input_total_cost,
 		   double input_tuples)
 {
+	if (cost_group_hook)
+	{
+		(*cost_group_hook) (path, root,
+							numGroupCols, numGroups,
+							quals,
+							input_startup_cost, input_total_cost,
+							input_tuples);
+	}
+	else
+	{
+		standard_cost_group(path, root,
+							numGroupCols, numGroups,
+							quals,
+							input_startup_cost, input_total_cost,
+							input_tuples);
+	}
+}
+
+/*
+ * standard_cost_group
+ *		Default cost estimation for Group nodes.
+ *
+ * See cost_group for the meaning of the parameters.
+ */
+void
+standard_cost_group(Path *path, PlannerInfo *root,
+					int numGroupCols, double numGroups,
+					List *quals,
+					Cost input_startup_cost, Cost input_total_cost,
+					double input_tuples)
+{
 	double		output_tuples;
 	Cost		startup_cost;
 	Cost		total_cost;
@@ -3240,6 +3602,34 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 					  JoinType jointype,
 					  Path *outer_path, Path *inner_path,
 					  JoinPathExtraData *extra)
+{
+	if (initial_cost_nestloop_hook)
+	{
+		(*initial_cost_nestloop_hook) (root, workspace,
+									   jointype,
+									   outer_path, inner_path,
+									   extra);
+	}
+	else
+	{
+		standard_initial_cost_nestloop(root, workspace,
+									   jointype,
+									   outer_path, inner_path,
+									   extra);
+	}
+}
+
+/*
+ * standard_initial_cost_nestloop
+ * 	  Default estimation for intiall nest loop cost.
+ *
+ * See initial_cost_nestloop for the meaning of the parameters.
+ */
+void
+standard_initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
+							   JoinType jointype,
+							   Path *outer_path, Path *inner_path,
+							   JoinPathExtraData *extra)
 {
 	Cost		startup_cost = 0;
 	Cost		run_cost = 0;
@@ -3314,6 +3704,27 @@ void
 final_cost_nestloop(PlannerInfo *root, NestPath *path,
 					JoinCostWorkspace *workspace,
 					JoinPathExtraData *extra)
+{
+	if (final_cost_nestloop_hook)
+	{
+		(*final_cost_nestloop_hook) (root, path, workspace, extra);
+	}
+	else
+	{
+		standard_final_cost_nestloop(root, path, workspace, extra);
+	}
+}
+
+/*
+ * standard_final_cost_nestloop
+ * 	  Default estimation for actual nest loop cost.
+ *
+ * See final_cost_nestloop for the meaning of the parameters.
+ */
+void
+standard_final_cost_nestloop(PlannerInfo *root, NestPath *path,
+							 JoinCostWorkspace *workspace,
+							 JoinPathExtraData *extra)
 {
 	Path	   *outer_path = path->jpath.outerjoinpath;
 	Path	   *inner_path = path->jpath.innerjoinpath;
@@ -3523,6 +3934,40 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 					   Path *outer_path, Path *inner_path,
 					   List *outersortkeys, List *innersortkeys,
 					   JoinPathExtraData *extra)
+{
+	if (initial_cost_mergejoin_hook)
+	{
+		(*initial_cost_mergejoin_hook) (root, workspace,
+										jointype,
+										mergeclauses,
+										outer_path, inner_path,
+										outersortkeys, innersortkeys,
+										extra);
+	}
+	else
+	{
+		standard_initial_cost_mergejoin(root, workspace,
+										jointype,
+										mergeclauses,
+										outer_path, inner_path,
+										outersortkeys, innersortkeys,
+										extra);
+	}
+}
+
+/*
+ * standard_initial_cost_mergejoin
+ * 	  Default estimation for initial merge join cost.
+ *
+ * See initial_cost_mergejoin for the meaning of the parameters.
+ */
+void
+standard_initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
+								JoinType jointype,
+								List *mergeclauses,
+								Path *outer_path, Path *inner_path,
+								List *outersortkeys, List *innersortkeys,
+								JoinPathExtraData *extra)
 {
 	Cost		startup_cost = 0;
 	Cost		run_cost = 0;
@@ -3751,6 +4196,27 @@ void
 final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 					 JoinCostWorkspace *workspace,
 					 JoinPathExtraData *extra)
+{
+	if (final_cost_mergejoin_hook)
+	{
+		(*final_cost_mergejoin_hook) (root, path, workspace, extra);
+	}
+	else
+	{
+		standard_final_cost_mergejoin(root, path, workspace, extra);
+	}
+}
+
+/*
+ * standard_final_cost_mergejoin
+ * 	  Default estimation for actual merge join cost.
+ *
+ * See final_cost_mergejoin for the meaning of the parameters.
+ */
+void
+standard_final_cost_mergejoin(PlannerInfo *root, MergePath *path,
+							  JoinCostWorkspace *workspace,
+							  JoinPathExtraData *extra)
 {
 	Path	   *outer_path = path->jpath.outerjoinpath;
 	Path	   *inner_path = path->jpath.innerjoinpath;
@@ -4083,6 +4549,40 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 					  JoinPathExtraData *extra,
 					  bool parallel_hash)
 {
+	if (initial_cost_hashjoin_hook)
+	{
+		(*initial_cost_hashjoin_hook) (root, workspace,
+									   jointype,
+									   hashclauses,
+									   outer_path, inner_path,
+									   extra,
+									   parallel_hash);
+	}
+	else
+	{
+		standard_initial_cost_hashjoin(root, workspace,
+									   jointype,
+									   hashclauses,
+									   outer_path, inner_path,
+									   extra,
+									   parallel_hash);
+	}
+}
+
+/*
+ * standard_initial_cost_hashjoin
+ *	  Default estimation for initial hash join cost.
+ *
+ * See initial_cost_hashjoin for the meaning of the parameters.
+ */
+void
+standard_initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
+							   JoinType jointype,
+							   List *hashclauses,
+							   Path *outer_path, Path *inner_path,
+							   JoinPathExtraData *extra,
+							   bool parallel_hash)
+{
 	Cost		startup_cost = 0;
 	Cost		run_cost = 0;
 	double		outer_path_rows = outer_path->rows;
@@ -4187,6 +4687,27 @@ void
 final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 					JoinCostWorkspace *workspace,
 					JoinPathExtraData *extra)
+{
+	if (final_cost_hashjoin_hook)
+	{
+		(*final_cost_hashjoin_hook) (root, path, workspace, extra);
+	}
+	else
+	{
+		standard_final_cost_hashjoin(root, path, workspace, extra);
+	}
+}
+
+/*
+ * standard_final_cost_hashjoin
+ *	  Default estimation for actual hash join cost.
+ *
+ * See final_cost_hashjoin for the meaning of the parameters.
+ */
+void
+standard_final_cost_hashjoin(PlannerInfo *root, HashPath *path,
+							 JoinCostWorkspace *workspace,
+							 JoinPathExtraData *extra)
 {
 	Path	   *outer_path = path->jpath.outerjoinpath;
 	Path	   *inner_path = path->jpath.innerjoinpath;
@@ -4544,10 +5065,33 @@ cost_subplan(PlannerInfo *root, SubPlan *subplan, Plan *plan)
  * plan types wherein the executor caches results explicitly, or doesn't
  * redo startup calculations, etc.
  */
-static void
+void
 cost_rescan(PlannerInfo *root, Path *path,
 			Cost *rescan_startup_cost,	/* output parameters */
 			Cost *rescan_total_cost)
+{
+	if (cost_rescan_hook)
+	{
+		(*cost_rescan_hook) (root, path,
+							 rescan_startup_cost, rescan_total_cost);
+	}
+	else
+	{
+		standard_cost_rescan(root, path,
+							 rescan_startup_cost, rescan_total_cost);
+	}
+}
+
+/*
+ * standard_cost_rescan
+ *		Default estimation for rescan cost.
+ *
+ * See cost_rescan for the meaning of the parameters.
+ */
+void
+standard_cost_rescan(PlannerInfo *root, Path *path,
+					 Cost *rescan_startup_cost, /* output parameters */
+					 Cost *rescan_total_cost)
 {
 	switch (path->pathtype)
 	{
@@ -5398,13 +5942,13 @@ standard_set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,
 	double		nrows;
 
 	nrows = calc_joinrel_size_estimate(root,
-										   rel,
-										   outer_rel,
-										   inner_rel,
-										   outer_rel->rows,
-										   inner_rel->rows,
-										   sjinfo,
-										   restrictlist);
+									   rel,
+									   outer_rel,
+									   inner_rel,
+									   outer_rel->rows,
+									   inner_rel->rows,
+									   sjinfo,
+									   restrictlist);
 	return nrows;
 }
 

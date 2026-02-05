@@ -82,6 +82,130 @@ typedef double (*set_joinrel_size_estimates_hook_type) (PlannerInfo *root, RelOp
 														SpecialJoinInfo *sjinfo, List *restrictlist);
 extern PGDLLIMPORT set_joinrel_size_estimates_hook_type set_joinrel_size_estimates_hook;
 
+
+/* Hooks for cost estimation functions */
+typedef void (*cost_seqscan_hook_type) (Path *path, PlannerInfo *root, RelOptInfo *baserel,
+										ParamPathInfo *param_info);
+extern PGDLLIMPORT cost_seqscan_hook_type cost_seqscan_hook;
+
+/* XXX: missing hook for cost_samplescan */
+
+typedef void (*cost_index_hook_type) (IndexPath *path, PlannerInfo *root,
+									  double loop_count, bool partial_path);
+extern PGDLLIMPORT cost_index_hook_type cost_index_hook;
+
+typedef void (*cost_bitmap_heap_scan_hook_type) (Path *path, PlannerInfo *root, RelOptInfo *baserel,
+												 ParamPathInfo *param_info,
+												 Path *bitmapqual, double loop_count);
+extern PGDLLIMPORT cost_bitmap_heap_scan_hook_type cost_bitmap_heap_scan_hook;
+
+typedef void (*cost_bitmap_and_node_hook_type) (BitmapAndPath *path, PlannerInfo *root);
+extern PGDLLIMPORT cost_bitmap_and_node_hook_type cost_bitmap_and_node_hook;
+typedef void (*cost_bitmap_or_node_hook_type) (BitmapOrPath *path, PlannerInfo *root);
+extern PGDLLIMPORT cost_bitmap_or_node_hook_type cost_bitmap_or_node_hook;
+
+/*
+ * XXX: missing hooks for
+ * cost_tidscan cost_tidrangescan cost_subqueryscan cost_functionscan cost_valuesscan cost_tablefuncscan
+ * cost_ctescan cost_namedtuplestorescan cost_resultscan cost_recursive_union
+ */
+
+typedef void (*cost_sort_hook_type) (Path *path, PlannerInfo *root,
+									 List *pathkeys, Cost input_cost, double tuples, int width,
+									 Cost comparison_cost, int sort_mem,
+									 double limit_tuples);
+extern PGDLLIMPORT cost_sort_hook_type cost_sort_hook;
+
+typedef void (*cost_incremental_sort_hook_type) (Path *path,
+												 PlannerInfo *root, List *pathkeys, int presorted_keys,
+												 Cost input_startup_cost, Cost input_total_cost,
+												 double input_tuples, int width, Cost comparison_cost, int sort_mem,
+												 double limit_tuples);
+extern PGDLLIMPORT cost_incremental_sort_hook_type cost_incremental_sort_hook;
+
+/* XXX: missing hook for cost_append cost_merge_append */
+
+typedef void (*cost_rescan_hook_type) (PlannerInfo *root, Path *path,
+									   Cost *rescan_startup_cost, Cost *rescan_total_cost);
+extern PGDLLIMPORT cost_rescan_hook_type cost_rescan_hook;
+typedef void (*cost_memoize_rescan_hook_type) (PlannerInfo *root, MemoizePath *mpath,
+											   Cost *rescan_startup_cost, Cost *rescan_total_cost);
+extern PGDLLIMPORT cost_memoize_rescan_hook_type cost_memoize_rescan_hook;
+typedef void (*cost_material_hook_type) (Path *path,
+										 Cost input_startup_cost, Cost input_total_cost,
+										 double tuples, int width);
+extern PGDLLIMPORT cost_material_hook_type cost_material_hook;
+
+typedef void (*cost_agg_hook_type) (Path *path, PlannerInfo *root,
+									AggStrategy aggstrategy, const AggClauseCosts *aggcosts,
+									int numGroupCols, double numGroups,
+									List *quals,
+									Cost input_startup_cost, Cost input_total_cost,
+									double input_tuples, double input_width);
+extern PGDLLIMPORT cost_agg_hook_type cost_agg_hook;
+
+typedef void (*cost_windowagg_hook_type) (Path *path, PlannerInfo *root,
+										  List *windowFuncs, int numPartCols, int numOrderCols,
+										  Cost input_startup_cost, Cost input_total_cost,
+										  double input_tuples);
+extern PGDLLIMPORT cost_windowagg_hook_type cost_windowagg_hook;
+
+typedef void (*cost_group_hook_type) (Path *path, PlannerInfo *root,
+									  int numGroupCols, double numGroups,
+									  List *quals,
+									  Cost input_startup_cost, Cost input_total_cost,
+									  double input_tuples);
+extern PGDLLIMPORT cost_group_hook_type cost_group_hook;
+
+typedef void (*initial_cost_nestloop_hook_type) (PlannerInfo *root,
+												 JoinCostWorkspace *workspace,
+												 JoinType jointype,
+												 Path *outer_path, Path *inner_path,
+												 JoinPathExtraData *extra);
+extern PGDLLIMPORT initial_cost_nestloop_hook_type initial_cost_nestloop_hook;
+typedef void (*final_cost_nestloop_hook_type) (PlannerInfo *root, NestPath *path,
+											   JoinCostWorkspace *workspace,
+											   JoinPathExtraData *extra);
+extern PGDLLIMPORT final_cost_nestloop_hook_type final_cost_nestloop_hook;
+
+typedef void (*initial_cost_mergejoin_hook_type) (PlannerInfo *root,
+												  JoinCostWorkspace *workspace,
+												  JoinType jointype,
+												  List *mergeclauses,
+												  Path *outer_path, Path *inner_path,
+												  List *outersortkeys, List *innersortkeys,
+												  JoinPathExtraData *extra);
+extern PGDLLIMPORT initial_cost_mergejoin_hook_type initial_cost_mergejoin_hook;
+typedef void (*final_cost_mergejoin_hook_type) (PlannerInfo *root, MergePath *path,
+												JoinCostWorkspace *workspace,
+												JoinPathExtraData *extra);
+extern PGDLLIMPORT final_cost_mergejoin_hook_type final_cost_mergejoin_hook;
+
+typedef void (*initial_cost_hashjoin_hook_type) (PlannerInfo *root,
+												 JoinCostWorkspace *workspace,
+												 JoinType jointype,
+												 List *hashclauses,
+												 Path *outer_path, Path *inner_path,
+												 JoinPathExtraData *extra,
+												 bool parallel_hash);
+extern PGDLLIMPORT initial_cost_hashjoin_hook_type initial_cost_hashjoin_hook;
+typedef void (*final_cost_hashjoin_hook_type) (PlannerInfo *root, HashPath *path,
+											   JoinCostWorkspace *workspace,
+											   JoinPathExtraData *extra);
+extern PGDLLIMPORT final_cost_hashjoin_hook_type final_cost_hashjoin_hook;
+
+typedef void (*cost_gather_hook_type) (GatherPath *path, PlannerInfo *root,
+									   RelOptInfo *rel, ParamPathInfo *param_info, double *rows);
+extern PGDLLIMPORT cost_gather_hook_type cost_gather_hook;
+typedef void (*cost_gather_merge_hook_type) (GatherMergePath *path, PlannerInfo *root,
+											 RelOptInfo *rel, ParamPathInfo *param_info,
+											 Cost input_startup_cost, Cost input_total_cost,
+											 double *rows);
+extern PGDLLIMPORT cost_gather_merge_hook_type cost_gather_merge_hook;
+
+/* XXX: missing for cost_subplan*/
+
+/* Prototypes for cost estimation functions */
 extern double index_pages_fetched(double tuples_fetched, BlockNumber pages,
 								  double index_pages, PlannerInfo *root);
 extern void cost_seqscan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
@@ -134,6 +258,10 @@ extern void cost_merge_append(Path *path, PlannerInfo *root,
 extern void cost_material(Path *path,
 						  Cost input_startup_cost, Cost input_total_cost,
 						  double tuples, int width);
+extern void cost_rescan(PlannerInfo *root, Path *path,
+						Cost *rescan_startup_cost, Cost *rescan_total_cost);
+extern void cost_memoize_rescan(PlannerInfo *root, MemoizePath *mpath,
+								Cost *rescan_startup_cost, Cost *rescan_total_cost);
 extern void cost_agg(Path *path, PlannerInfo *root,
 					 AggStrategy aggstrategy, const AggClauseCosts *aggcosts,
 					 int numGroupCols, double numGroups,
@@ -231,4 +359,79 @@ extern double standard_set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo 
 												  SpecialJoinInfo *sjinfo,
 												  List *restrictlist);
 
+/* Prototypes of default cost estimation functions */
+extern void standard_cost_seqscan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
+								  ParamPathInfo *param_info);
+extern void standard_cost_index(IndexPath *path, PlannerInfo *root,
+								double loop_count, bool partial_path);
+extern void standard_cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
+										   ParamPathInfo *param_info,
+										   Path *bitmapqual, double loop_count);
+extern void standard_cost_bitmap_and_node(BitmapAndPath *path, PlannerInfo *root);
+extern void standard_cost_bitmap_or_node(BitmapOrPath *path, PlannerInfo *root);
+extern void standard_cost_sort(Path *path, PlannerInfo *root,
+							   List *pathkeys, Cost input_cost, double tuples, int width,
+							   Cost comparison_cost, int sort_mem,
+							   double limit_tuples);
+extern void standard_cost_incremental_sort(Path *path,
+										   PlannerInfo *root, List *pathkeys, int presorted_keys,
+										   Cost input_startup_cost, Cost input_total_cost,
+										   double input_tuples, int width, Cost comparison_cost, int sort_mem,
+										   double limit_tuples);
+extern void standard_cost_rescan(PlannerInfo *root, Path *path,
+								 Cost *rescan_startup_cost, Cost *rescan_total_cost);
+extern void standard_cost_memoize_rescan(PlannerInfo *root, MemoizePath *mpath,
+										 Cost *rescan_startup_cost, Cost *rescan_total_cost);
+extern void standard_cost_material(Path *path,
+								   Cost input_startup_cost, Cost input_total_cost,
+								   double tuples, int width);
+extern void standard_cost_agg(Path *path, PlannerInfo *root,
+							  AggStrategy aggstrategy, const AggClauseCosts *aggcosts,
+							  int numGroupCols, double numGroups,
+							  List *quals,
+							  Cost input_startup_cost, Cost input_total_cost,
+							  double input_tuples, double input_width);
+extern void standard_cost_windowagg(Path *path, PlannerInfo *root,
+									List *windowFuncs, int numPartCols, int numOrderCols,
+									Cost input_startup_cost, Cost input_total_cost,
+									double input_tuples);
+extern void standard_cost_group(Path *path, PlannerInfo *root,
+								int numGroupCols, double numGroups,
+								List *quals,
+								Cost input_startup_cost, Cost input_total_cost,
+								double input_tuples);
+extern void standard_initial_cost_nestloop(PlannerInfo *root,
+										   JoinCostWorkspace *workspace,
+										   JoinType jointype,
+										   Path *outer_path, Path *inner_path,
+										   JoinPathExtraData *extra);
+extern void standard_final_cost_nestloop(PlannerInfo *root, NestPath *path,
+										 JoinCostWorkspace *workspace,
+										 JoinPathExtraData *extra);
+extern void standard_initial_cost_mergejoin(PlannerInfo *root,
+											JoinCostWorkspace *workspace,
+											JoinType jointype,
+											List *mergeclauses,
+											Path *outer_path, Path *inner_path,
+											List *outersortkeys, List *innersortkeys,
+											JoinPathExtraData *extra);
+extern void standard_final_cost_mergejoin(PlannerInfo *root, MergePath *path,
+										  JoinCostWorkspace *workspace,
+										  JoinPathExtraData *extra);
+extern void standard_initial_cost_hashjoin(PlannerInfo *root,
+										   JoinCostWorkspace *workspace,
+										   JoinType jointype,
+										   List *hashclauses,
+										   Path *outer_path, Path *inner_path,
+										   JoinPathExtraData *extra,
+										   bool parallel_hash);
+extern void standard_final_cost_hashjoin(PlannerInfo *root, HashPath *path,
+										 JoinCostWorkspace *workspace,
+										 JoinPathExtraData *extra);
+extern void standard_cost_gather(GatherPath *path, PlannerInfo *root,
+								 RelOptInfo *rel, ParamPathInfo *param_info, double *rows);
+extern void standard_cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
+									   RelOptInfo *rel, ParamPathInfo *param_info,
+									   Cost input_startup_cost, Cost input_total_cost,
+									   double *rows);
 #endif							/* COST_H */
