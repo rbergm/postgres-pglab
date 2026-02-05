@@ -72,6 +72,16 @@ extern PGDLLIMPORT bool enable_presorted_aggregate;
 extern PGDLLIMPORT bool enable_async_append;
 extern PGDLLIMPORT int constraint_exclusion;
 
+/* Hook for plugins to provide own cardinality estimates for base rels */
+typedef double (*set_baserel_size_estimates_hook_type) (PlannerInfo *root, RelOptInfo *rel);
+extern PGDLLIMPORT set_baserel_size_estimates_hook_type set_baserel_size_estimates_hook;
+
+/* Hook for plugins to provide own cardinality estimates for join rels */
+typedef double (*set_joinrel_size_estimates_hook_type) (PlannerInfo *root, RelOptInfo *rel,
+														RelOptInfo *outer_rel, RelOptInfo *inner_rel,
+														SpecialJoinInfo *sjinfo, List *restrictlist);
+extern PGDLLIMPORT set_joinrel_size_estimates_hook_type set_joinrel_size_estimates_hook;
+
 extern double index_pages_fetched(double tuples_fetched, BlockNumber pages,
 								  double index_pages, PlannerInfo *root);
 extern void cost_seqscan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
@@ -212,5 +222,13 @@ extern PathTarget *set_pathtarget_cost_width(PlannerInfo *root, PathTarget *targ
 extern double compute_bitmap_pages(PlannerInfo *root, RelOptInfo *baserel,
 								   Path *bitmapqual, double loop_count,
 								   Cost *cost_p, double *tuples_p);
+
+/* Prototypes of default cardinality estimation function */
+extern double standard_set_baserel_size_estimates(PlannerInfo *root, RelOptInfo *rel);
+extern double standard_set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,
+												  RelOptInfo *outer_rel,
+												  RelOptInfo *inner_rel,
+												  SpecialJoinInfo *sjinfo,
+												  List *restrictlist);
 
 #endif							/* COST_H */
