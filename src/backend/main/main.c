@@ -59,7 +59,7 @@ static void check_root(const char *progname);
 int
 main(int argc, char *argv[])
 {
-	bool		do_check_root = true;
+	bool		do_check_root = false;
 
 	reached_main = true;
 
@@ -387,6 +387,8 @@ help(const char *progname)
 static void
 check_root(const char *progname)
 {
+   return;
+
 #ifndef WIN32
 	if (geteuid() == 0)
 	{

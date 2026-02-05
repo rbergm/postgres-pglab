@@ -809,15 +809,6 @@ get_id(void)
 {
 	const char *username;
 
-#ifndef WIN32
-	if (geteuid() == 0)			/* 0 is root's uid */
-	{
-		pg_log_error("cannot be run as root");
-		pg_log_error_hint("Please log in (using, e.g., \"su\") as the (unprivileged) user that will own the server process.");
-		exit(1);
-	}
-#endif
-
 	username = get_user_name_or_exit(progname);
 
 	return pg_strdup(username);
