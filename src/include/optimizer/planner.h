@@ -37,6 +37,9 @@ typedef void (*create_upper_paths_hook_type) (PlannerInfo *root,
 											  void *extra);
 extern PGDLLIMPORT create_upper_paths_hook_type create_upper_paths_hook;
 
+/* pg_lab addition: hook for plugins to modify the final path (or perform other post-processing tasks) */
+typedef Path* (*final_path_callback_type) (PlannerInfo *root, RelOptInfo *final_rel, Path *best_path);
+extern PGDLLIMPORT final_path_callback_type final_path_callback;
 
 extern PlannedStmt *standard_planner(Query *parse, const char *query_string,
 									 int cursorOptions,
