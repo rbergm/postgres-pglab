@@ -53,7 +53,7 @@ static void try_partial_mergejoin_path(PlannerInfo *root,
 									   List *innersortkeys,
 									   JoinType jointype,
 									   JoinPathExtraData *extra);
-static void sort_inner_and_outer(PlannerInfo *root, RelOptInfo *joinrel,
+void sort_inner_and_outer(PlannerInfo *root, RelOptInfo *joinrel,
 								 RelOptInfo *outerrel, RelOptInfo *innerrel,
 								 JoinType jointype, JoinPathExtraData *extra);
 static inline bool clause_sides_match_join(RestrictInfo *rinfo,
@@ -62,20 +62,20 @@ static inline bool clause_sides_match_join(RestrictInfo *rinfo,
 static void match_unsorted_outer(PlannerInfo *root, RelOptInfo *joinrel,
 								 RelOptInfo *outerrel, RelOptInfo *innerrel,
 								 JoinType jointype, JoinPathExtraData *extra);
-static void consider_parallel_nestloop(PlannerInfo *root,
+void consider_parallel_nestloop(PlannerInfo *root,
 									   RelOptInfo *joinrel,
 									   RelOptInfo *outerrel,
 									   RelOptInfo *innerrel,
 									   JoinType jointype,
 									   JoinPathExtraData *extra);
-static void consider_parallel_mergejoin(PlannerInfo *root,
+void consider_parallel_mergejoin(PlannerInfo *root,
 										RelOptInfo *joinrel,
 										RelOptInfo *outerrel,
 										RelOptInfo *innerrel,
 										JoinType jointype,
 										JoinPathExtraData *extra,
 										Path *inner_cheapest_total);
-static void hash_inner_and_outer(PlannerInfo *root, RelOptInfo *joinrel,
+void hash_inner_and_outer(PlannerInfo *root, RelOptInfo *joinrel,
 								 RelOptInfo *outerrel, RelOptInfo *innerrel,
 								 JoinType jointype, JoinPathExtraData *extra);
 static List *select_mergejoin_clauses(PlannerInfo *root,
@@ -85,7 +85,7 @@ static List *select_mergejoin_clauses(PlannerInfo *root,
 									  List *restrictlist,
 									  JoinType jointype,
 									  bool *mergejoin_allowed);
-static void generate_mergejoin_paths(PlannerInfo *root,
+void generate_mergejoin_paths(PlannerInfo *root,
 									 RelOptInfo *joinrel,
 									 RelOptInfo *innerrel,
 									 Path *outerpath,
@@ -576,7 +576,7 @@ paraminfo_get_equal_hashops(PlannerInfo *root, ParamPathInfo *param_info,
  *		If possible, make and return a Memoize path atop of 'inner_path'.
  *		Otherwise return NULL.
  */
-static Path *
+Path *
 get_memoize_path(PlannerInfo *root, RelOptInfo *innerrel,
 				 RelOptInfo *outerrel, Path *inner_path,
 				 Path *outer_path, JoinType jointype,
@@ -716,7 +716,7 @@ get_memoize_path(PlannerInfo *root, RelOptInfo *innerrel,
  *	  Consider a nestloop join path; if it appears useful, push it into
  *	  the joinrel's pathlist via add_path().
  */
-static void
+void
 try_nestloop_path(PlannerInfo *root,
 				  RelOptInfo *joinrel,
 				  Path *outer_path,
@@ -1270,7 +1270,7 @@ clause_sides_match_join(RestrictInfo *rinfo, RelOptInfo *outerrel,
  * 'jointype' is the type of join to do
  * 'extra' contains additional input values
  */
-static void
+void
 sort_inner_and_outer(PlannerInfo *root,
 					 RelOptInfo *joinrel,
 					 RelOptInfo *outerrel,
@@ -1473,7 +1473,7 @@ sort_inner_and_outer(PlannerInfo *root,
  * mergeclause list as well as the full list.  (Ideally we'd consider all
  * subsets of the mergeclause list, but that seems way too expensive.)
  */
-static void
+void
 generate_mergejoin_paths(PlannerInfo *root,
 						 RelOptInfo *joinrel,
 						 RelOptInfo *innerrel,
@@ -1973,7 +1973,7 @@ match_unsorted_outer(PlannerInfo *root,
  * 'extra' contains additional input values
  * 'inner_cheapest_total' cheapest total path for innerrel
  */
-static void
+void
 consider_parallel_mergejoin(PlannerInfo *root,
 							RelOptInfo *joinrel,
 							RelOptInfo *outerrel,
@@ -2013,7 +2013,7 @@ consider_parallel_mergejoin(PlannerInfo *root,
  * 'jointype' is the type of join to do
  * 'extra' contains additional input values
  */
-static void
+void
 consider_parallel_nestloop(PlannerInfo *root,
 						   RelOptInfo *joinrel,
 						   RelOptInfo *outerrel,
@@ -2097,7 +2097,7 @@ consider_parallel_nestloop(PlannerInfo *root,
  * 'jointype' is the type of join to do
  * 'extra' contains additional input values
  */
-static void
+void
 hash_inner_and_outer(PlannerInfo *root,
 					 RelOptInfo *joinrel,
 					 RelOptInfo *outerrel,
