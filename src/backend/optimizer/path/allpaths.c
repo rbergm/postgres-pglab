@@ -88,6 +88,10 @@ set_rel_pathlist_hook_type set_rel_pathlist_hook = NULL;
 join_search_hook_type join_search_hook = NULL;
 
 
+/* Hook for plugins to replace standard_compute_parallel_workers() */
+compute_parallel_worker_hook_type compute_parallel_worker_hook = NULL;
+
+
 static void set_base_rel_consider_startup(PlannerInfo *root);
 static void set_base_rel_sizes(PlannerInfo *root);
 static void set_base_rel_pathlists(PlannerInfo *root);
@@ -4273,6 +4277,28 @@ create_partial_bitmap_paths(PlannerInfo *root, RelOptInfo *rel,
 int
 compute_parallel_worker(RelOptInfo *rel, double heap_pages, double index_pages,
 						int max_workers)
+{
+    if (compute_parallel_worker_hook)
+    {
+        return (*compute_parallel_worker_hook) (rel, heap_pages, index_pages,
+                                                max_workers);
+    }
+    else
+    {
+        return standard_compute_parallel_worker(rel, heap_pages, index_pages,
+                                                max_workers);
+    }
+}
+
+/*
+ * standard_compute_parallel_worker
+ *     Standard implementation of compute_parallel_worker.
+ *
+ * See compute_parallel_worker for the meaning of the parameters
+ */
+int
+standard_compute_parallel_worker(RelOptInfo *rel, double heap_pages,
+                                 double index_pages, int max_workers)
 {
 	int			parallel_workers = 0;
 
