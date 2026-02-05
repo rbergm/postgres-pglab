@@ -44,6 +44,7 @@
 #define FD_H
 
 #include "port/pg_iovec.h"
+#include "utils/resowner.h"
 
 #include <dirent.h>
 #include <fcntl.h>
