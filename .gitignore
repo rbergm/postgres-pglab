@@ -43,3 +43,9 @@ lib*.pc
 /Release/
 /tmp_install/
 /portlock/
+
+
+# pg_lab specifics
+dist/
+pg.log
+.vscode/

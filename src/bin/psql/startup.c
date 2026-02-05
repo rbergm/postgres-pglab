@@ -457,7 +457,10 @@ error:
 		pg_logging_config(PG_LOG_FLAG_TERSE);
 		connection_warnings(true);
 		if (!pset.quiet)
+        {
+            printf(_("Postgres with pg_lab. Backend PID %d\n"), PQbackendPID(pset.db));
 			printf(_("Type \"help\" for help.\n\n"));
+        }
 		initializeInput(options.no_readline ? 0 : 1);
 		successResult = MainLoop(stdin);
 	}
