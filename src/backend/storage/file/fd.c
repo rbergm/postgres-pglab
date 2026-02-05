@@ -193,21 +193,6 @@ int			io_direct_flags;
 #define FD_CLOSE_AT_EOXACT	(1 << 1)	/* T = close at eoXact */
 #define FD_TEMP_FILE_LIMIT	(1 << 2)	/* T = respect temp_file_limit */
 
-typedef struct vfd
-{
-	int			fd;				/* current FD, or VFD_CLOSED if none */
-	unsigned short fdstate;		/* bitflags for VFD's state */
-	ResourceOwner resowner;		/* owner, for automatic cleanup */
-	File		nextFree;		/* link to next free VFD, if in freelist */
-	File		lruMoreRecently;	/* doubly linked recency-of-use list */
-	File		lruLessRecently;
-	off_t		fileSize;		/* current size of file (0 if not temporary) */
-	char	   *fileName;		/* name of file, or NULL for unused VFD */
-	/* NB: fileName is malloc'd, and must be free'd when closing the VFD */
-	int			fileFlags;		/* open(2) flags for (re)opening the file */
-	mode_t		fileMode;		/* mode to pass to open(2) */
-} Vfd;
-
 /*
  * Virtual File Descriptor array pointer and size.  This grows as
  * needed.  'File' values are indexes into this array.
@@ -3970,4 +3955,24 @@ assign_debug_io_direct(const char *newval, void *extra)
 	int		   *flags = (int *) extra;
 
 	io_direct_flags = *flags;
+}
+
+/* pg_lab additions */
+
+/*
+ * GetVfdByFile
+ *
+ * Fetch the virtual file descriptor (vfd) structure corresponding to the given File.
+ */
+struct vfd*
+GetVfdByFile(File file)
+{
+    if (FileIsValid(file))
+    {
+        return &VfdCache[file];
+    }
+    else
+    {
+        return NULL;
+    }
 }
