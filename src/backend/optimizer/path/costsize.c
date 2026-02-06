@@ -564,11 +564,13 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 	if (cost_gather_merge_hook)
 	{
 		(*cost_gather_merge_hook) (path, root, rel, param_info,
+								   input_disabled_nodes,
 								   input_startup_cost, input_total_cost, rows);
 	}
 	else
 	{
 		standard_cost_gather_merge(path, root, rel, param_info,
+								   input_disabled_nodes,
 								   input_startup_cost, input_total_cost, rows);
 	}
 }
@@ -582,6 +584,7 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 void
 standard_cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 						   RelOptInfo *rel, ParamPathInfo *param_info,
+						   int input_disabled_nodes,
 						   Cost input_startup_cost, Cost input_total_cost,
 						   double *rows)
 {
@@ -2186,6 +2189,7 @@ cost_incremental_sort(Path *path,
 	if (cost_incremental_sort_hook)
 	{
 		(*cost_incremental_sort_hook) (path, root, pathkeys, presorted_keys,
+									   input_disabled_nodes,
 									   input_startup_cost, input_total_cost,
 									   input_tuples, width, comparison_cost,
 									   sort_mem, limit_tuples);
@@ -2193,6 +2197,7 @@ cost_incremental_sort(Path *path,
 	else
 	{
 		standard_cost_incremental_sort(path, root, pathkeys, presorted_keys,
+									   input_disabled_nodes,
 									   input_startup_cost, input_total_cost,
 									   input_tuples, width, comparison_cost,
 									   sort_mem, limit_tuples);
@@ -2208,6 +2213,7 @@ cost_incremental_sort(Path *path,
 void
 standard_cost_incremental_sort(Path *path,
 							   PlannerInfo *root, List *pathkeys, int presorted_keys,
+							   int input_disabled_nodes,
 							   Cost input_startup_cost, Cost input_total_cost,
 							   double input_tuples, int width, Cost comparison_cost, int sort_mem,
 							   double limit_tuples)
@@ -2357,13 +2363,19 @@ cost_sort(Path *path, PlannerInfo *root,
 {
 	if (cost_sort_hook)
 	{
-		(*cost_sort_hook) (path, root, pathkeys, input_cost, tuples, width,
-						   comparison_cost, sort_mem, limit_tuples);
+		(*cost_sort_hook) (path, root,
+						   pathkeys, input_disabled_nodes,
+						   input_cost, tuples, width,
+						   comparison_cost, sort_mem,
+						   limit_tuples);
 	}
 	else
 	{
-		standard_cost_sort(path, root, pathkeys, input_cost, tuples, width,
-						   comparison_cost, sort_mem, limit_tuples);
+		standard_cost_sort(path, root,
+						   pathkeys, input_disabled_nodes,
+						   input_cost, tuples, width,
+						   comparison_cost, sort_mem,
+						   limit_tuples);
 	}
 }
 
@@ -2375,7 +2387,8 @@ cost_sort(Path *path, PlannerInfo *root,
  */
 void
 standard_cost_sort(Path *path, PlannerInfo *root,
-				   List *pathkeys, Cost input_cost, double tuples, int width,
+				   List *pathkeys, int input_disabled_nodes,
+				   Cost input_cost, double tuples, int width,
 				   Cost comparison_cost, int sort_mem,
 				   double limit_tuples)
 
@@ -2719,12 +2732,16 @@ cost_material(Path *path,
 {
 	if (cost_material_hook)
 	{
-		(*cost_material_hook) (path, input_startup_cost, input_total_cost,
+		(*cost_material_hook) (path,
+							   input_disabled_nodes,
+							   input_startup_cost, input_total_cost,
 							   tuples, width);
 	}
 	else
 	{
-		standard_cost_material(path, input_startup_cost, input_total_cost,
+		standard_cost_material(path,
+							   input_disabled_nodes,
+							   input_startup_cost, input_total_cost,
 							   tuples, width);
 	}
 }
@@ -2736,6 +2753,7 @@ cost_material(Path *path,
  */
 void
 standard_cost_material(Path *path,
+					   int input_disabled_nodes,
 					   Cost input_startup_cost, Cost input_total_cost,
 					   double tuples, int width)
 {
@@ -2969,6 +2987,7 @@ cost_agg(Path *path, PlannerInfo *root,
 						  aggstrategy, aggcosts,
 						  numGroupCols, numGroups,
 						  quals,
+						  disabled_nodes,
 						  input_startup_cost, input_total_cost,
 						  input_tuples, input_width);
 	}
@@ -2978,6 +2997,7 @@ cost_agg(Path *path, PlannerInfo *root,
 						  aggstrategy, aggcosts,
 						  numGroupCols, numGroups,
 						  quals,
+						  disabled_nodes,
 						  input_startup_cost, input_total_cost,
 						  input_tuples, input_width);
 	}
@@ -2993,6 +3013,7 @@ standard_cost_agg(Path *path, PlannerInfo *root,
 				  AggStrategy aggstrategy, const AggClauseCosts *aggcosts,
 				  int numGroupCols, double numGroups,
 				  List *quals,
+				  int disabled_nodes,
 				  Cost input_startup_cost, Cost input_total_cost,
 				  double input_tuples, double input_width)
 {
@@ -3413,14 +3434,16 @@ cost_windowagg(Path *path, PlannerInfo *root,
 	if (cost_windowagg_hook)
 	{
 		(*cost_windowagg_hook) (path, root,
-								windowFuncs, numPartCols, numOrderCols,
+								windowFuncs, winclause,
+								input_disabled_nodes,
 								input_startup_cost, input_total_cost,
 								input_tuples);
 	}
 	else
 	{
 		standard_cost_windowagg(path, root,
-								windowFuncs, numPartCols, numOrderCols,
+								windowFuncs, winclause,
+								input_disabled_nodes,
 								input_startup_cost, input_total_cost,
 								input_tuples);
 	}
@@ -3434,7 +3457,8 @@ cost_windowagg(Path *path, PlannerInfo *root,
  */
 void
 standard_cost_windowagg(Path *path, PlannerInfo *root,
-						List *windowFuncs, int numPartCols, int numOrderCols,
+						List *windowFuncs, WindowClause *winclause,
+						int input_disabled_nodes,
 						Cost input_startup_cost, Cost input_total_cost,
 						double input_tuples)
 {
@@ -3541,6 +3565,7 @@ cost_group(Path *path, PlannerInfo *root,
 		(*cost_group_hook) (path, root,
 							numGroupCols, numGroups,
 							quals,
+							input_disabled_nodes,
 							input_startup_cost, input_total_cost,
 							input_tuples);
 	}
@@ -3549,6 +3574,7 @@ cost_group(Path *path, PlannerInfo *root,
 		standard_cost_group(path, root,
 							numGroupCols, numGroups,
 							quals,
+							input_disabled_nodes,
 							input_startup_cost, input_total_cost,
 							input_tuples);
 	}
@@ -3564,6 +3590,7 @@ void
 standard_cost_group(Path *path, PlannerInfo *root,
 					int numGroupCols, double numGroups,
 					List *quals,
+					int input_disabled_nodes,
 					Cost input_startup_cost, Cost input_total_cost,
 					double input_tuples)
 {
@@ -3981,6 +4008,7 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 										mergeclauses,
 										outer_path, inner_path,
 										outersortkeys, innersortkeys,
+										outer_presorted_keys,
 										extra);
 	}
 	else
@@ -3990,6 +4018,7 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 										mergeclauses,
 										outer_path, inner_path,
 										outersortkeys, innersortkeys,
+										outer_presorted_keys,
 										extra);
 	}
 }
@@ -4006,6 +4035,7 @@ standard_initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 								List *mergeclauses,
 								Path *outer_path, Path *inner_path,
 								List *outersortkeys, List *innersortkeys,
+								int outer_presorted_keys,
 								JoinPathExtraData *extra)
 {
 	int 		disabled_nodes;
